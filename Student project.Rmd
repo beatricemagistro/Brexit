@@ -1,0 +1,16 @@
+---
+title: "Student Project"
+author: "Beatrice Magistro"
+date: "10/10/2016"
+output: pdf_document
+---
+
+Our research project investigates which individual factors are more likely to be associated with a Brexit vote. We will examine whether economic or cultural explanations affect more an anti-EU stance. We will rely on two different datasets to test our hypotheses and we will also eventually use official data from the Referendum to check whether cross-regionally Brexit votes corresponded with dependent variables, that try to measure the Brexit vote as close as possible.
+
+The two datasets we will be using are the Eurobarometer and the European Social Survey. We will use the May 2015 Eurobarometer wave and the 2014 European Social Survey wave.
+
+```{r}
+summary(cars)
+```
+
+
