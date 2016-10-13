@@ -4,22 +4,20 @@ author: "Beatrice Magistro, Steven Otterman, and Lawrence Koster"
 date: "10/10/2016"
 output: html_document
 ---
-
-
-Our research project investigates which individual factors are more
-likely to be associated with a Brexit vote. We will examine whether
+  
+  
+  Our research project investigates which individual factors are more
+likely to be associated with a Brexit vote. Specifically, we will examine whether
 economic or cultural explanations are more likely to be associated
-with anti-EU stance. We will rely on two different datasets to test
+with an anti-EU stance. We will rely on two different datasets to test
 our hypotheses and we will also eventually use official data from the
-Referendum to check whether cross-regionally Brexit votes corresponded
-with the dependent variables, that try to measure the Brexit vote as
-close as possible.
+Referendum to check whether Brexit votes corresponded cross-regionally
+with the dependent variables.
 
-The two datasets we will be using are the Eurobarometer and the
+The two datasets we will be using are the Eurobarometer (EB) and the
 European Social Survey (ESS). We will use the May 2015 Eurobarometer wave
-and the 2014 European Social Survey wave. The unit of analysis are
-individual respondents. The dependent variable of interest from the EB
-dataset is: "Better future outside of the EU"", which is a discrete
+and the 2014 European Social Survey wave. The unit of analysis is
+individual respondents (potential voters from the UK). The dependent variable of interest from the EB dataset is: "Better future outside of the EU"", which is a discrete
 variable that takes four possible values: Strongly agree (1), agree
 (2), disagree (3), strongly disagree (4). The dependent variable of
 interest from the ESS dataset is:  "Now thinking about the European
@@ -30,20 +28,17 @@ best describes your position?" A lower score (e.g. 1) means
 "Unification go further".
 
 The probability distribution that best describes our data are
-multinomial distributions in both datasets.Two assumptions of a
+multinomial distributions in both datasets. Two assumptions of a
 multinomial distribution are that the trials it illustrates must be
 independent and the probability of each possible result must be
-constant. We do not think that any of these assumptions are violated
-by that data.
-
-We believe that it would be appropriate to use MLE or ordinal logistic
-regression.
+constant. We do not think that either of these assumptions are violated
+by that data. Furthermore, we believe that it would be appropriate to use MLE or ordinal logistic regression.
 
 Our covariates of interest will be variables on the sujective and
-objective feelings towards the state of the economy in a country,
-feelings towards immigration, stances towards globalization and we
-will use socio-demographic controls such as age, education, gender and
-region.
+objective feelings towards the state of the economy in the UK,
+feelings towards immigration, and stances towards globalization, and we
+will use socio-demographic controls such as age, education, gender, and
+region as well.
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 library(rio)
