@@ -144,10 +144,13 @@ EU5 <- filter(EB, country=='DE'|
                    country=='ES'|
                    country=='FR'|country=='UK'|country=='IT')
 
+UK <- filter(EB, country=='UK')
+ggplot(UK, aes(x=betteroutsideeu)) + geom_bar()
 
 EB$betteroutsideeurec <- recode(EB$betteroutsideeu, "1:2 = 1; 3:4 = 0")
 EU15$betteroutsideeurec <- recode(EU15$betteroutsideeu, "1:2 = 1; 3:4 = 0")
 EU5$betteroutsideeurec <- recode(EU5$betteroutsideeu, "1:2 = 1; 3:4 = 0")
+UK$betteroutsideeurec <- recode(UK$betteroutsideeu, "1:2 = 1; 3:4 = 0")
 
 ggplot(EU15[!is.na(EU15$betteroutsideeurec), ],
        aes(x=betteroutsideeurec)) +

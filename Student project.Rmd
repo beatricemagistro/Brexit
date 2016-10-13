@@ -5,12 +5,18 @@ date: "10/10/2016"
 output: pdf_document
 ---
 
-Our research project investigates which individual factors are more likely to be associated with a Brexit vote. We will examine whether economic or cultural explanations affect more an anti-EU stance. We will rely on two different datasets to test our hypotheses and we will also eventually use official data from the Referendum to check whether cross-regionally Brexit votes corresponded with dependent variables, that try to measure the Brexit vote as close as possible.
+Our research project investigates which individual factors are more likely to be associated with a Brexit vote. We will examine whether economic or cultural explanations are more likely to be associated with anti-EU stance. We will rely on two different datasets to test our hypotheses and we will also eventually use official data from the Referendum to check whether cross-regionally Brexit votes corresponded with the dependent variables, that try to measure the Brexit vote as close as possible.
 
-The two datasets we will be using are the Eurobarometer and the European Social Survey. We will use the May 2015 Eurobarometer wave and the 2014 European Social Survey wave.
+The two datasets we will be using are the Eurobarometer and the European Social Survey. We will use the May 2015 Eurobarometer wave and the 2014 European Social Survey wave. The unit of analysis are individual respondents. The dependent variable of interest from the EB dataset is: "Better future outside of the EU"", which is a discrete variable that takes four possible values: Strongly agree (1), agree (2), disagree (3), strongly disagree (4). The dependent variable of interest from the ESS dataset is:  "Now thinking about the European Union, some say European unification should go further. Others say it has already gone too far. Using this card, what number on the scale best describes your position?" A lower score (e.g. 1) means "Unification already gone too far" and a higher score (e.g. 10) "Unification go further". 
 
-```{r}
-summary(cars)
+The probability distribution that best describes our data are multinomial distributions in both datasets.Two assumptions of a multinomial distribution are that the trials it illustrates must be independent and the probability of each possible result must be constant. We do not think that any of these assumptions are violated by that data.
+
+We believe that it would be appropriate to use MLE or ordinal logistic regression.
+
+Our covariates of interest will be variables on the sujective and objective feelings towards the state of the economy in a country, feelings towards immigration, stances towards globalization and we will use socio-demographic controls such as age, education, gender and region.
+
+```{r, echo=FALSE}
+ggplot(UK, aes(betteroutsideeu)) + geom_bar() + labs(x="Better future outside of the EU")
 ```
 
 
