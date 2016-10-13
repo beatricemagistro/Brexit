@@ -8,12 +8,18 @@ library(ggplot2)
 library(magrittr)
 
 
-ESSGB7 <- import("ESS7GB.sav")
-save(ESSGB7, file = "ESS7GB.Rdata")
-
+#ESSGB7 <- import("ESS7GB.sav")
+#save(ESSGB7, file = "ESS7GB.Rdata")
+ESSGB7 <- load("ESS7GB.Rdata")
 table(ESSGB7$euftf)
 
-ggplot(ESSGB7, aes(x = euftf)) + geom_bar()
+E1 <- import(ESSGB7)
+E1$euftf <- revalue(E1$euftf, c("Unification go further" = "10"))
+E1 <- E1 %>% filter(!is.na(euftf))
+
+ggplot(E1, aes(x = euftf)) + geom_bar() + labs(y = "Count", 
+                    x = "European Unification Too Far or Not Far Enough (10 = Not Far Enough)",
+                    title = "ESS 2014 Outcome Variable Histogram")
 
 E2 <- ESSGB7
 E2 <- E2 %>% filter(!is.na(euftf))
