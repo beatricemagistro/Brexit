@@ -6,11 +6,12 @@ library(rio)
 library(dplyr)
 library(ggplot2)
 library(magrittr)
+library(uwpols501)
 
+ESSGB7 <- import("ESS7GB.sav")
+save(ESSGB7, file = "ESS7GB.Rdata")
 
-#ESSGB7 <- import("ESS7GB.sav")
-#save(ESSGB7, file = "ESS7GB.Rdata")
-ESSGB7 <- load("ESS7GB.Rdata")
+#ESSGB7 <- load("ESS7GB.Rdata")
 table(ESSGB7$euftf)
 
 E1 <- import(ESSGB7)
