@@ -1,10 +1,20 @@
 ---
-title: "Student Project"
-author: "Beatrice Magistro"
+title: "POLS 510 Student Project Assignment 1"
+author: "Beatrice Magistro, Steven Otterman, and Lawrence Koster"
 date: "10/10/2016"
-output: pdf_document
+output: html_document
 ---
+  
+  
+  Our research project investigates which individual factors are more
+likely to be associated with a Brexit vote. Specifically, we will examine whether
+economic or cultural explanations are more likely to be associated
+with an anti-EU stance. We will rely on two different datasets to test
+our hypotheses and we will also eventually use official data from the
+Referendum to check whether Brexit votes corresponded cross-regionally
+with the dependent variables.
 
+<<<<<<< HEAD
 Our research project investigates which individual factors are more likely to be associated with a Brexit vote. We will examine whether economic or cultural explanations are more likely to be associated with anti-EU stance. We will rely on two different datasets to test our hypotheses and we will also eventually use official data from the Referendum to check whether cross-regionally Brexit votes corresponded with the dependent variables, that try to measure the Brexit vote as close as possible.
 
 The two datasets we will be using are the Eurobarometer and the European Social Survey. We will use the May 2015 Eurobarometer wave and the 2014 European Social Survey wave. The unit of analysis are individual respondents. The dependent variable of interest from the EB dataset is: "Better future outside of the EU"", which is a discrete variable that takes four possible values: Strongly agree (1), agree (2), disagree (3), strongly disagree (4). The dependent variable of interest from the ESS dataset is:  "Now thinking about the European Union, some say European unification should go further. Others say it has already gone too far. Using this card, what number on the scale best describes your position?" A lower score (e.g. 1) means "Unification already gone too far" and a higher score (e.g. 10) "Unification go further". 
@@ -127,6 +137,206 @@ EB$country <- recode(EB$country, "'DE-E' = 'DE'; 'DE-W' = 'DE';
                        'GB-GBN' = 'UK'; 'GB-NIR' = 'UK'")
 UK <- filter(EB, country=='UK')
 ggplot(UK, aes(betteroutsideeu)) + geom_bar() + labs(x="Better future outside of the EU")
+=======
+The two datasets we will be using are the Eurobarometer (EB) and the
+European Social Survey (ESS). We will use the May 2015 Eurobarometer wave
+and the 2014 European Social Survey wave. The unit of analysis is
+individual respondents (potential voters from the UK). The dependent variable of interest from the EB dataset is: "Better future outside of the EU"", which is a discrete
+variable that takes four possible values: Strongly agree (1), agree
+(2), disagree (3), strongly disagree (4). The dependent variable of
+interest from the ESS dataset is:  "Now thinking about the European
+Union, some say European unification should go further. Others say it
+has already gone too far. Using this card, what number on the scale
+best describes your position?" A lower score (e.g. 1) means
+"Unification already gone too far" and a higher score (e.g. 10)
+"Unification go further".
+
+The probability distribution that best describes our data are
+multinomial distributions in both datasets. Two assumptions of a
+multinomial distribution are that the trials it illustrates must be
+independent and the probability of each possible result must be
+constant. We do not think that either of these assumptions are violated
+by that data. Furthermore, we believe that it would be appropriate to use MLE or ordinal logistic regression.
+
+Our covariates of interest will be variables on the sujective and
+objective feelings towards the state of the economy in the UK,
+feelings towards immigration, and stances towards globalization, and we
+will use socio-demographic controls such as age, education, gender, and
+region as well.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(rio)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(uwpols501)
+library(tidyr)
+library(broom)
+library(uwpols501)
+#library(haven)
+#library(car)
+>>>>>>> 76e686e8cfb0bce7f5b56fb603658052b7b8691e
 ```
 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#EB <- import("EB.dta")
+#save(EB, file = "EB.Rdata")
+#EB <- read_dta("EB.dta")
 
+load("EB.Rdata")
+
+varnames <- c('unemplratecorrect','inflratecorrect', 'growthcorrect',
+              'econ2correct'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(9),
+                    NA, EB[[i]])
+}
+
+varnames <- c('finaexp', 'econexp', 'inflratecompared2013'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(4, 8, 9),
+                    NA, EB[[i]])
+}
+
+varnames <- c('situationatecon', 'situationeuecon', 'finasituation',
+              'feeleuimmigration', 'feelnoneuimmigration',
+              'betteroutsideeu',
+              'crisisreducepublicdebt','crisispublicdebtnopriority',
+              'eusufficientpowers','crisisprivatesectorjobs',
+              'crisispublicinvestment',
+              'statspoldecisions', 'satisdmo', 'satisdeu',
+              'citizen','stateintervenestoomuch',
+              'toomuchtolerance', 'immigrantscontribute'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(5, 6, 7, 8, 9),
+                    NA, EB[[i]])
+}
+
+varnames <- c('trustnp', 'trustgov',
+              'trusteu','heardep',
+              'heardec', 'heardecb', 'trustep', 'trustec', 'trustecb',
+              'euknownomemb', 'euknowswimemb', 'euknowepelect', 'statstrust')
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(3, 8, 9),
+                    NA, EB[[i]])
+}
+
+varnames <- c('euimage', 'soclass', 'educrec5'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(6, 7, 8, 9),
+                    NA, EB[[i]])
+}
+
+
+varnames <- c('unemplrate2014rec')
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(8, 99),
+                    NA, EB[[i]])
+}
+
+varnames <- c('inflrate2014rec', 'growth2014rec')
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(9, 99),
+                    NA, EB[[i]])
+}
+
+varnames <- c('unemplrate2014', 'inflrate2014', 'growth2014')
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(99999, 999999),
+                    NA, EB[[i]])
+}
+
+varnames <- c('married'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(15, 97),
+                    NA, EB[[i]])
+}
+
+varnames <- c('educ'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(0, 97, 98, 99),
+                    NA, EB[[i]])
+}
+
+varnames <- c('lrs', 'educrec11'
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(97, 98),
+                    NA, EB[[i]])
+}
+
+varnames <- c("regionBE",                  "regionFR",
+              "regionNE",                   "regionDE",
+              "regionIT",
+              "regionLU",                   "regionDK",
+              "regionIE",
+              "regionUK",                   "regionGR",
+              "regionES",
+              "regionPT",                   "regionFI",
+              "regionSE",
+              "regionAU",                   "regionCY",
+              "allregions",
+              "regionCZ",                   "regionEE",
+              "regionHU",
+              "regionLV",                   "regionLT",
+              "regionPL",
+              "regionSK",                   "regionSI",
+              "regionBG",
+              "regionRO",                   "regionTR",
+              "regionHR",
+              "regionTCC",                  "regionMK",
+              "regionRS",
+              "regioneME",                  "regionAL"
+)
+for (i in varnames) {
+  EB[[i]] <- ifelse(EB[[i]] %in% c(99),
+                    NA, EB[[i]])
+}
+
+EB$age_gr <- cut(EB$age,
+                 breaks = c(14, 25, 35, 45, 55, 65, 100),
+                 labels = c("15-24", "25-34","35-44","45-54",
+                            "55-64","65+"),
+                 right = FALSE)
+
+EB$country <- revalue(EB$country, c("DE-E" = "DE", "DE-W" = "DE", "GB-GBN" = "UK", 
+                                    "GB-NIR" = "UK"))
+UK <- filter(EB, country=='UK')
+```
+The first histrogram, below, is for the outcome variable from the Eurobarometer.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(UK, aes(betteroutsideeu)) + geom_bar() + labs(x="Better future outside of the EU", y = "Count", title = "Eurobarometer 2015 Outcome Variable Histogram")
+```
+  
+  
+Next, the historgram for the outcome variable from the European Social Survey.
+  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+load("ESS7GB.Rdata")
+E1 <- ESSGB7
+E1$euftf <- revalue(E1$euftf, c("Unification go further" = "10"))
+E1 <- E1 %>% filter(!is.na(euftf))
+
+ggplot(E1, aes(x = euftf)) + geom_bar() + labs(y = "Count", 
+                    x = "European Unification Too Far or Not Far Enough (10 = Not Far Enough)",
+                    title = "ESS 2014 Outcome Variable Histogram")
+```
+  
+This final historgram groups the outcome variable from the European Social Survey into 2 groups: Less Unification (Strong) and More Unification (Strong). The first group contains all respondants who chose {1, 2, 3} as their responses while the More Unification (strong) group contains those who chose {8, 9, 10}. All other values {4, 5, 6, 7} as well as NAs were dropped.
+  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+E3 <- ESSGB7
+E3 <- E3 %>% filter(!is.na(euftf))
+E3$euftf2[E3$euftf == 1 | E3$euftf == 2 | E3$euftf == 3] <- "LESS UNIFICATION (STRONG)"
+E3$euftf2[E3$euftf == 8 | E3$euftf == 9 | E3$euftf == "Unification go further"] <- "MORE UNIFICATION (STRONG)"
+ggplot(E3, aes(x = euftf2)) + geom_bar() + labs(y = "Count", 
+                    x = "European Unification",
+                    title = "ESS 2014 Outcome Variable Histogram (Strong)")
+```
