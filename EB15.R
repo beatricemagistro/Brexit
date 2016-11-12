@@ -200,11 +200,11 @@ llk.oprobit4 <- function(param, x, y) {
 
 # Model specification (for polr, simcf)
 model <- betteroutsideeu ~ situationatecon + finasituation + feeleuimmigration +
-  feelnoneuimmigration + globopportunity +
+  feelnoneuimmigration + globopportunity + 
   male + soclass + age + educ + lrs
 
 # betteroutsideeu: 1 st agree, 2 agree, 3 disagree, 4 st disagree
-# situationnatecon: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
+# situationatecon: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
 # finasituation: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
 # feeleuimmigration: 1 very positive, 2 fairly positive, 3 fairly negative, 4 very negative, 5dk
 # feelnoneuimmigration: 1 very positive, 2 fairly positive, 3 fairly negative, 4 very negative, 5dk
@@ -249,10 +249,10 @@ simbetas <- mvrnorm(sims, pe, vc)       # draw parameters, using MASS::mvrnorm
 xhyp <- cfMake(model, mdata, nscen=20)
 
 xhyp <- cfName(xhyp,"nat econ = very good", scen=1)
-xhyp <- cfChange(xhyp, "situationnatecon", x=1, xpre=4, scen=1)
+xhyp <- cfChange(xhyp, "situationatecon", x=1, xpre=4, scen=1)
 
 xhyp <- cfName(xhyp, "nat econ = very bad", scen=2)
-xhyp <- cfChange(xhyp, "situationnatecon", x=4, xpre=1, scen=2)
+xhyp <- cfChange(xhyp, "situationatecon", x=4, xpre=1, scen=2)
 
 xhyp <- cfName(xhyp, "fin situation = very good", scen=3)
 xhyp <- cfChange(xhyp, "finasituation", x=1, xpre=4, scen=3)
