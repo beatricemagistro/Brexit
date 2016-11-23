@@ -10,7 +10,6 @@ library("ggplot2")
 library("plyr")
 library("dplyr")
 library("broom")
-library("devtools")
 library("haven")
 library("readr")
 library("sjmisc")
@@ -20,9 +19,11 @@ library(tidyr)
 library(scales)
 library(simcf)
 library(tile)
+library(verification)
 library(RColorBrewer)
 library(MASS)
 library(WhatIf)
+library(boot)
 source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
 
 ##################################################################################
@@ -69,7 +70,8 @@ source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
 #                               ))
 # save(EB16, file="EB16.Rdata")
 ##################################################################################
-
+#clear memory
+rm(list=ls())
 #load data
 load("EB16.Rdata")
 
@@ -85,7 +87,6 @@ varnames <- c('finaexp', 'econexp','situationatecon', 'finasituation','jobsituat
 for (i in varnames) {
   EB16[[i]] <- as.integer(EB16[[i]])
 }
-
 
 # recode missing values into NAs
 
@@ -195,7 +196,7 @@ llk.oprobit4 <- function(param, x, y) {
 }
 
 # Model specification (for polr, simcf)
-model <- betteroutsideeu ~ situationatecon+ finasituation + feeleuimmigration +
+model <- betteroutsideeu ~ finasituation + feeleuimmigration +
   feelnoneuimmigration + globopportunity +
   male + age + educ + lrs
 
@@ -222,10 +223,14 @@ model <- betteroutsideeu ~ situationatecon+ finasituation + feeleuimmigration +
 #delete missing data
 mdata <- extractdata(model, UK, na.rm=TRUE) 
 
+#check for multicollinearity
+
+cor(mdata, use="complete.obs", method="kendall")
+
 ## Data from 2015
 y <- mdata$betteroutsideeu   #better future outside eu
 
-x <- cbind(mdata$situationatecon, mdata$finasituation, mdata$feeleuimmigration, 
+x <- cbind(mdata$finasituation, mdata$feeleuimmigration, 
            mdata$feelnoneuimmigration, mdata$globopportunity, mdata$male,
            mdata$age, mdata$educ, mdata$lrs)
 
@@ -239,18 +244,29 @@ vc <- solve(oprobit$hessian)     # var-cov matrix
 se <- sqrt(diag(vc))                 # standard errors
 ll <- -oprobit$value             # likelihood at maximum
 
+#vif
+
+vif(ls.result)
+
 # Simulate parameters from predictive distributions
 sims <- 10000
 simbetas <- mvrnorm(sims, pe, vc)       # draw parameters, using MASS::mvrnorm
 
 # Create example counterfactuals
-xhyp <- cfMake(model, mdata, nscen=18)
+xhyp <- cfMake(model, mdata, nscen=16)
 
-xhyp <- cfName(xhyp,"nat econ = very good", scen=1)
-xhyp <- cfChange(xhyp, "situationatecon", x=1, xpre=4, scen=1)
+xhyp <- cfName(xhyp, "Right", scen=1)
+xhyp <- cfChange(xhyp, "lrs",
+                 x=mean(na.omit(mdata$lrs))+sd(na.omit(mdata$lrs)),
+                 xpre=mean(na.omit(mdata$lrs)),
+                 scen=1)
 
-xhyp <- cfName(xhyp, "nat econ = very bad", scen=2)
-xhyp <- cfChange(xhyp, "situationatecon", x=4, xpre=1, scen=2)
+xhyp <- cfName(xhyp, "Left", scen=2)
+xhyp <- cfChange(xhyp, "lrs",
+                 x=mean(na.omit(mdata$lrs))-sd(na.omit(mdata$lrs)),
+                 xpre=mean(na.omit(mdata$lrs)),
+                 scen=2)
+
 
 xhyp <- cfName(xhyp, "fin situation = very good", scen=3)
 xhyp <- cfChange(xhyp, "finasituation", x=1, xpre=4, scen=3)
@@ -314,17 +330,6 @@ xhyp <- cfChange(xhyp,"educ", x=mean(na.omit(mdata$educ))+sd(na.omit(mdata$educ)
 #                  xpre=4,
 #                  scen=18)
 
-xhyp <- cfName(xhyp, "Right", scen=17)
-xhyp <- cfChange(xhyp, "lrs",
-                 x=mean(na.omit(mdata$lrs))+sd(na.omit(mdata$lrs)),
-                 xpre=mean(na.omit(mdata$lrs)),
-                 scen=17)
-
-xhyp <- cfName(xhyp, "Left", scen=18)
-xhyp <- cfChange(xhyp, "lrs",
-                 x=mean(na.omit(mdata$lrs))-sd(na.omit(mdata$lrs)),
-                 xpre=mean(na.omit(mdata$lrs)),
-                 scen=18)
 
 # Simulate expected probabilities (all four categories)
 oprobit.ev <- oprobitsimev(xhyp, simbetas, cat=4)
@@ -421,8 +426,8 @@ trace2b <- ropeladder(x = oprobit.evc$pe[sorted,2],
 tile(trace1b, trace2b,
      limits = c(0,0.85),
      gridlines = list(type="xt"),
-     xaxis=list(at=c(0, 0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8)),
-     topaxis=list(add=TRUE, at=c(0, 0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8)),
+     xaxis=list(at=c(0,0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8)),
+     topaxis=list(add=TRUE, at=c(0,0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8)),
      xaxistitle=list(labels="probability"),
      topaxistitle=list(labels="probability"),
      plottitle=list(labels=c("Agree or Str Agree",
@@ -432,7 +437,7 @@ tile(trace1b, trace2b,
 )
 
 # Create example counterfactuals -- for diffs
-xhyp <- cfMake(model, mdata, nscen=9)
+xhyp <- cfMake(model, mdata, nscen=8)
 
 xhyp <- cfName(xhyp, "Left(Right)", scen=1)
 xhyp <- cfChange(xhyp, "lrs", x=mean(na.omit(mdata$lrs))-sd(na.omit(mdata$lrs)),
@@ -451,8 +456,8 @@ xhyp <- cfName(xhyp,"Educ years +1sd (Educ-1sd)", scen=4)
 xhyp <- cfChange(xhyp, "educ", x=mean(na.omit(mdata$age))+sd(na.omit(mdata$age)),
                  xpre=mean(na.omit(mdata$age))-sd(na.omit(mdata$age)), scen=4)
 
-xhyp <- cfName(xhyp, "Nat economy v good(V Negative)", scen=5)
-xhyp <- cfChange(xhyp, "situationatecon", x=1, xpre=4, scen=5)
+xhyp <- cfName(xhyp, "Fin situation v good(V Negative)", scen=5)
+xhyp <- cfChange(xhyp, "finasituation", x=1, xpre=4, scen=5)
 
 xhyp <- cfName(xhyp, "EU immigration v positive (Negative)", scen=6)
 xhyp <- cfChange(xhyp, "feeleuimmigration", x=1, xpre=4, scen=6)
@@ -462,9 +467,6 @@ xhyp <- cfChange(xhyp, "globopportunity", x=1, xpre=4, scen=7)
 
 xhyp <- cfName(xhyp, "Non-EU immigration v positive (V Negative)", scen=8)
 xhyp <- cfChange(xhyp, "feelnoneuimmigration", x=1, xpre=4, scen=8)
-
-xhyp <- cfName(xhyp, "Fin situation v good(V Negative)", scen=9)
-xhyp <- cfChange(xhyp, "finasituation", x=1, xpre=4, scen=9)
 
 # Simulate expected probabilities (all four categories)
 oprobit.evc <- oprobitsimev(xhyp, simbetas, cat=4,
@@ -492,7 +494,7 @@ trace1c <- ropeladder(x = oprobit.fdc$pe[sortedc,2],
 
 
 sigMark1 <- oprobit.fdc$pe[sortedc,2]
-is.na(sigMark1) <- (oprobit.fdc$lower[sortedc,2]<0)# < because I am using disagree and I have negative values
+is.na(sigMark1) <- (oprobit.fdc$lower[sortedc,2]>0)
 traceSig1 <- ropeladder(x=sigMark1,
                         col="white",
                         group=1,
@@ -519,8 +521,39 @@ tile(trace1c, vertmark, traceSig1,
      height=list(plottitle=3,xaxistitle=3.5,topaxistitle=3.5)
 )
 
+# cross-validation
 
+## A simple leave-one-out cross-validation function for multinom adapted for oprobit
+# returns predicted probs
+loocv <- function (obj, model, data) {
+  ncat <- 4
+  m <- nrow(mdata)
+  form <- model
+  loo <- matrix(NA, nrow=m, ncol=ncat)
+  for (i in 1:m) {
+  oprobit <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
+                    feelnoneuimmigration + globopportunity +
+                    male + age + educ + lrs, data=mdata[-i,], method="probit")
+    loo[i,] <- predict(oprobit, newdata = mdata[i,], type="probs")
+  }
+  loo
+}
 
+#do ordered probit with polr, otherwise predict function won't work
+oprobit2 <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
+                   feelnoneuimmigration + globopportunity +
+                   male + age + educ + lrs, data=mdata, method="probit")
 
+predIS <- predict(oprobit2, type="probs")
+predCV <- loocv(oprobit2, model, mdata)
 
+ncat <- 4
+predIScat <- apply(predIS, 1, function(x, ncat) order(x)[ncat], ncat=ncat)
+predCVcat <- apply(predCV, 1, function(x, ncat) order(x)[ncat], ncat=ncat)
 
+pcpIS <- mean(predIScat==mdata$betteroutsideeu)
+pcpIS
+pcpCV <- mean(predCVcat==mdata$betteroutsideeu)
+pcpCV
+
+#if this is correct, the model doesn't fit well. We need a bigger sample.
