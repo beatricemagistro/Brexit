@@ -24,58 +24,15 @@ library(RColorBrewer)
 library(MASS)
 library(WhatIf)
 library(boot)
+library(lmtest)
 source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
 
-##################################################################################
-#don't run this. Here I selected the variables we want from the original dataset
-#  EB16 <- import("EB16.dta")
-#  save(EB16, file = "EB16.Rdata")
-# 
-#  load("EB16.Rdata")
-#  
-# EB16 <- EB16 %>%
-#   dplyr::select(isocntry, qa1a_1, qa1a_4, qa2a_2, qa2a_3, qa9, qa14_1, qa14_2, qa14_3,qa1a_3, 
-#           qa16_1, qa16_2, qa16_3, qa16t1, qa18a, qa18b, qa19a_4, qa19a_5, qd1_1, d15a_r1,qa2a_5,
-#           qd4_2, qd4_5, d1, d8, d10, d11, d15a_r2, d15a, d63, p7gb, w4, w92, qb4_1, qb4_2)
-#   save(EB16, file="EB16.Rdata")
-# 
-# # renaming
-#  
-# EB16 <- plyr::rename(EB16, c('isocntry'='country',
-#                               'w4'='weightuk',  'w92'='weighttotal',
-#                               'qa2a_3'='finaexp', 'qa1a_1'='situationatecon',
-#                               'qa1a_4'='finasituation', 'qa2a_5'='jobexp',
-#                               'qa2a_2'='econexp','qa1a_3'='jobsituation',
-#                               'qa9'='euimage',
-#                               'qb4_1'='feeleuimmigration',
-#                               'qb4_2'='feelnoneuimmigration',
-#                               'qa14_1'='heardep',
-#                               'qa14_2'='heardec',
-#                               'qa14_3'='heardecb',
-#                               'qa16_1'='euknownomemb',
-#                               'qa16_3'='euknowswimemb','qa16_2'='euknowepelect',
-#                              'qa16t1'='euknowcorrect',
-#                              'qa19a_4'='globopportunity',
-#                              'qa19a_5'='betteroutsideeu',
-#                             'qa18a'='satisdmo',
-#                               'qa18b'='satisdeu','d15a_r1'='occup_rec',
-#                               'qd1_1'='citizen','qd4_2'='immigrantscontribute',
-#                               'qd4_5'='helprefugees',
-#                               'd10'='sex',
-#                               'd63'='soclass',
-#                               'd11'='age','d8'='educ',
-#                               'd1'='lrs',
-#                               'd15a_r2'='occup_scale','d15a'='occup',
-#                               'p7gb'='regionUK'
-#                               ))
-# save(EB16, file="EB16.Rdata")
-##################################################################################
 #clear memory
 rm(list=ls())
 #load data
 load("EB16.Rdata")
 
-#transform variables from factors to integers otherwise simcf won't work
+#transform variables from factors to integers for simulations
 
 varnames <- c('finaexp', 'econexp','situationatecon', 'finasituation','jobsituation',
               'feeleuimmigration', 'feelnoneuimmigration','jobexp',
@@ -94,7 +51,7 @@ varnames <- c('finaexp', 'econexp','jobexp'
 )
 for (i in varnames) {
   EB16[[i]] <- ifelse(EB16[[i]] %in% c(4, 8, 9),
-                    NA, EB16[[i]])
+                      NA, EB16[[i]])
 }
 
 varnames <- c('situationatecon', 'finasituation','jobsituation',
@@ -104,7 +61,7 @@ varnames <- c('situationatecon', 'finasituation','jobsituation',
 )
 for (i in varnames) {
   EB16[[i]] <- ifelse(EB16[[i]] %in% c(5, 6, 7, 8, 9),
-                    NA, EB16[[i]])
+                      NA, EB16[[i]])
 }
 
 varnames <- c('heardep',
@@ -112,55 +69,38 @@ varnames <- c('heardep',
               'euknownomemb', 'euknowswimemb', 'euknowepelect')
 for (i in varnames) {
   EB16[[i]] <- ifelse(EB16[[i]] %in% c(3, 8, 9),
-                    NA, EB16[[i]])
+                      NA, EB16[[i]])
 }
 
 varnames <- c('euimage', 'soclass' 
 )
 for (i in varnames) {
   EB16[[i]] <- ifelse(EB16[[i]] %in% c(6, 7, 8, 9),
-                    NA, EB16[[i]])
+                      NA, EB16[[i]])
 }
 
-varnames <- c('educ'
-)
-for (i in varnames) {
-  EB16[[i]] <- ifelse(EB16[[i]] %in% c(0, 97, 98, 99),
-                    NA, EB16[[i]])
-}
 
-varnames <- c('lrs'
-)
-for (i in varnames) {
-  EB16[[i]] <- ifelse(EB16[[i]] %in% c(97, 98),
-                    NA, EB16[[i]])
-}
+EB16$educ <- ifelse(EB16$educ %in% c(0, 97, 98, 99),
+                    NA, EB16$educ)
 
-varnames <- c("regionUK"
-)
-for (i in varnames) {
-  EB16[[i]] <- ifelse(EB16[[i]] %in% c(99),
-                    NA, EB16[[i]])
-}
+EB16$lrs <- ifelse(EB16$lrs %in% c(97, 98),
+                   NA, EB16$lrs)
 
-# recode variables
-
-# age group (I am not sure we'll need this)
-EB16$age_gr <- cut(EB16$age,
-                 breaks = c(14, 25, 35, 45, 55, 65, 100),
-                 labels = c("15-24", "25-34","35-44","45-54",
-                            "55-64","65+"),
-                 right = FALSE)
+EB16$regionUK <- ifelse(EB16$regionUK %in% c(99),
+                        NA, EB16$regionUK)
 
 # recode countries: merge two Germanys, and merge Northern Ireland with rest of GB
+
 EB16$country <- recode(EB16$country, "'DE-E' = 'DE'; 'DE-W' = 'DE';
-                     'GB-GBN' = 'UK'; 'GB-NIR' = 'UK'")
+                       'GB-GBN' = 'UK'; 'GB-NIR' = 'UK'")
+
 # recode sex so to make it an integer too
 EB16$male <- recode(EB16$sex, "'Man' = 1; 'Woman' = 0")
 EB16$male <- as.integer(EB16$male)
 EB16$male <- recode(EB16$male, "1 = 0; 2 = 1")
 
 # only keep the UK
+
 UK <- filter(EB16, country=='UK')
 
 ## Nice colors
@@ -195,13 +135,12 @@ llk.oprobit4 <- function(param, x, y) {
   -sum(cbind(y==1,y==2,y==3,y==4) * cbind(p1,p2,p3,p4))
 }
 
-# Model specification (for polr, simcf)
+# Model specification 
 model <- betteroutsideeu ~ finasituation + feeleuimmigration +
-  feelnoneuimmigration + globopportunity +
+  feelnoneuimmigration + globopportunity + occup_scale +
   male + age + educ + lrs
 
 # betteroutsideeu: 1 st agree, 2 agree, 3 disagree, 4 st disagree
-# situationnatecon: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
 # finasituation: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
 # jobsituation: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
 # feeleuimmigration: 1 very positive, 2 fairly positive, 3 fairly negative, 4 very negative, 5dk
@@ -214,12 +153,6 @@ model <- betteroutsideeu ~ finasituation + feeleuimmigration +
 # educ: age when finished education
 # lrs: left to right scale 1 left 10 right
 
-# we also have immigrants contribute (immigrantscontribute),
-# questions on EU knowledge:
-# euknownomemb: 28 member states: 1 True (CORRECT), 2 false, 3 dk
-# euknowepelect: EP members are elected: 1 True (CORRECT), 2 false, 3 dk
-# euknowswimemb: switzerland is member 1 True, 2 false (CORRECT), 3 dk
-
 #delete missing data
 mdata <- extractdata(model, UK, na.rm=TRUE) 
 
@@ -231,7 +164,9 @@ cor(mdata, use="complete.obs", method="kendall")
 y <- mdata$betteroutsideeu   #better future outside eu
 
 x <- cbind(mdata$finasituation, mdata$feeleuimmigration, 
-           mdata$feelnoneuimmigration, mdata$globopportunity, mdata$male,
+           mdata$feelnoneuimmigration, mdata$globopportunity,
+           mdata$occup_scale,
+           mdata$male,
            mdata$age, mdata$educ, mdata$lrs)
 
 
@@ -253,7 +188,7 @@ sims <- 10000
 simbetas <- mvrnorm(sims, pe, vc)       # draw parameters, using MASS::mvrnorm
 
 # Create example counterfactuals
-xhyp <- cfMake(model, mdata, nscen=16)
+xhyp <- cfMake(model, mdata, nscen=18)
 
 xhyp <- cfName(xhyp, "Right", scen=1)
 xhyp <- cfChange(xhyp, "lrs",
@@ -268,34 +203,34 @@ xhyp <- cfChange(xhyp, "lrs",
                  scen=2)
 
 
-xhyp <- cfName(xhyp, "fin situation = very good", scen=3)
+xhyp <- cfName(xhyp, "Fin situation = very good", scen=3)
 xhyp <- cfChange(xhyp, "finasituation", x=1, xpre=4, scen=3)
 
-xhyp <- cfName(xhyp, "fin situation = very bad", scen=4)
+xhyp <- cfName(xhyp, "Fin situation = very bad", scen=4)
 xhyp <- cfChange(xhyp, "finasituation", x=4, xpre=1, scen=4)
 
-xhyp <- cfName(xhyp, "eu immigration = very positive", scen=5)
+xhyp <- cfName(xhyp, "EU immigration = very positive", scen=5)
 xhyp <- cfChange(xhyp, "feeleuimmigration", x=1, xpre=4, scen=5)
 
-xhyp <- cfName(xhyp, "eu immigration = very negative", scen=6)
+xhyp <- cfName(xhyp, "EU immigration = very negative", scen=6)
 xhyp <- cfChange(xhyp, "feeleuimmigration", x=4, xpre=1, scen=6)
 
-xhyp <- cfName(xhyp, "non-eu immigration = very positive", scen=7)
+xhyp <- cfName(xhyp, "Non-EU immigration = very positive", scen=7)
 xhyp <- cfChange(xhyp, "feelnoneuimmigration", x=1, xpre=4, scen=7)
 
-xhyp <- cfName(xhyp, "non-eu immigration = very negative", scen=8)
+xhyp <- cfName(xhyp, "Non-EU immigration = very negative", scen=8)
 xhyp <- cfChange(xhyp, "feelnoneuimmigration", x=4, xpre=1, scen=8)
 
-xhyp <- cfName(xhyp, "globalization=strongly approves", scen=9)
+xhyp <- cfName(xhyp, "Globalization=strongly approves", scen=9)
 xhyp <- cfChange(xhyp, "globopportunity", x=1, xpre=4, scen=9)
 
-xhyp <- cfName(xhyp, "globalization=strongly disapproves", scen=10)
+xhyp <- cfName(xhyp, "Globalization=strongly disapproves", scen=10)
 xhyp <- cfChange(xhyp, "globopportunity", x=4, xpre=1, scen=10)
 
-xhyp <- cfName(xhyp, "male", scen=11)
+xhyp <- cfName(xhyp, "Male", scen=11)
 xhyp <- cfChange(xhyp, "male", x=1, xpre=0, scen=11)
 
-xhyp <- cfName(xhyp, "female", scen=12)
+xhyp <- cfName(xhyp, "Female", scen=12)
 xhyp <- cfChange(xhyp, "male", x=0, xpre=1, scen=12)
 
 xhyp <- cfName(xhyp, "Age + 1sd = 69", scen=13)
@@ -318,17 +253,17 @@ xhyp <- cfName(xhyp,"Educ years+1sd=23", scen=16)
 xhyp <- cfChange(xhyp,"educ", x=mean(na.omit(mdata$educ))+sd(na.omit(mdata$educ)),
                  xpre=mean(na.omit(mdata$educ)), scen=16)
 
-# xhyp <- cfName(xhyp,"Manual workers", scen=17)
-# xhyp <- cfChange(xhyp, "occup_scale",
-#                  x=4,
-#                  xpre=3,
-#                  scen=17)
-# 
-# xhyp <- cfName(xhyp,"White collar", scen=18)
-# xhyp <- cfChange(xhyp, "occup_scale",
-#                  x=3,
-#                  xpre=4,
-#                  scen=18)
+xhyp <- cfName(xhyp,"Blue collar", scen=17)
+xhyp <- cfChange(xhyp, "occup_scale",
+                 x=4,
+                 xpre=3,
+                 scen=17)
+
+xhyp <- cfName(xhyp,"White collar", scen=18)
+xhyp <- cfChange(xhyp, "occup_scale",
+                 x=3,
+                 xpre=4,
+                 scen=18)
 
 
 # Simulate expected probabilities (all four categories)
@@ -424,10 +359,10 @@ trace2b <- ropeladder(x = oprobit.evc$pe[sorted,2],
 )
 
 tile(trace1b, trace2b,
-     limits = c(0,0.85),
+     limits = c(0,1),
      gridlines = list(type="xt"),
-     xaxis=list(at=c(0,0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8)),
-     topaxis=list(add=TRUE, at=c(0,0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8)),
+     xaxis=list(at=c(0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8,0.9)),
+     topaxis=list(add=TRUE, at=c(0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8,0.9)),
      xaxistitle=list(labels="probability"),
      topaxistitle=list(labels="probability"),
      plottitle=list(labels=c("Agree or Str Agree",
@@ -437,7 +372,7 @@ tile(trace1b, trace2b,
 )
 
 # Create example counterfactuals -- for diffs
-xhyp <- cfMake(model, mdata, nscen=8)
+xhyp <- cfMake(model, mdata, nscen=9)
 
 xhyp <- cfName(xhyp, "Left(Right)", scen=1)
 xhyp <- cfChange(xhyp, "lrs", x=mean(na.omit(mdata$lrs))-sd(na.omit(mdata$lrs)),
@@ -467,6 +402,9 @@ xhyp <- cfChange(xhyp, "globopportunity", x=1, xpre=4, scen=7)
 
 xhyp <- cfName(xhyp, "Non-EU immigration v positive (V Negative)", scen=8)
 xhyp <- cfChange(xhyp, "feelnoneuimmigration", x=1, xpre=4, scen=8)
+
+xhyp <- cfName(xhyp, "Blue collar (White collar)", scen=9)
+xhyp <- cfChange(xhyp, "occup_scale", x=4, xpre=3, scen=9)
 
 # Simulate expected probabilities (all four categories)
 oprobit.evc <- oprobitsimev(xhyp, simbetas, cat=4,
@@ -531,9 +469,9 @@ loocv <- function (obj, model, data) {
   form <- model
   loo <- matrix(NA, nrow=m, ncol=ncat)
   for (i in 1:m) {
-  oprobit <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
-                    feelnoneuimmigration + globopportunity +
-                    male + age + educ + lrs, data=mdata[-i,], method="probit")
+    oprobit <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
+                      feelnoneuimmigration + globopportunity + occup_scale +
+                      male + age + educ + lrs, data=mdata[-i,], method="probit")
     loo[i,] <- predict(oprobit, newdata = mdata[i,], type="probs")
   }
   loo
@@ -541,7 +479,7 @@ loocv <- function (obj, model, data) {
 
 #do ordered probit with polr, otherwise predict function won't work
 oprobit2 <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
-                   feelnoneuimmigration + globopportunity +
+                   feelnoneuimmigration + globopportunity + occup_scale +
                    male + age + educ + lrs, data=mdata, method="probit")
 
 predIS <- predict(oprobit2, type="probs")
@@ -557,3 +495,12 @@ pcpCV <- mean(predCVcat==mdata$betteroutsideeu)
 pcpCV
 
 #if this is correct, the model doesn't fit well. We need a bigger sample.
+
+
+# should we do other tests comparing our model with the same model with no controls?
+
+# likelihood ratio test
+# BIC
+# ROC
+# Actual versus predicted plot
+
