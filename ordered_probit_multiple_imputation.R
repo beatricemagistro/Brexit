@@ -111,94 +111,53 @@ UK <- dplyr::select(UK, betteroutsideeu, finasituation, feeleuimmigration,
                feelnoneuimmigration, globopportunity, occup_scale,
                male, age,educ,lrs)
 
+#model 
 
-## Likelihood for 4 category ordered probit
-llk.oprobit4 <- function(param, x, y) {
-  # preliminaries
-  os <- rep(1, nrow(x))
-  x <- cbind(os, x)  
-  b <- param[1:ncol(x)]
-  t2 <- param[(ncol(x)+1)]
-  t3 <- param[(ncol(x)+2)]
-  
-  # probabilities and penalty function
-  xb <- x%*%b
-  p1 <- log(pnorm(-xb))
-  if (t2<=0)  p2 <- -(abs(t2)*10000)    # penalty function to keep t2>0
-  else p2 <- log(pnorm(t2-xb)-pnorm(-xb))
-  if (t3<=t2) p3 <- -((t2-t3)*10000)    # penalty to keep t3>t2
-  else p3 <- log(pnorm(t3-xb)-pnorm(t2-xb))     
-  p4 <- log(1-pnorm(t3-xb)) 
-  
-  # -1 * log likelihood (optim is a minimizer)
-  -sum(cbind(y==1,y==2,y==3,y==4) * cbind(p1,p2,p3,p4))
-}
-
-# Model specification 
-model <- betteroutsideeu ~ finasituation + feeleuimmigration +
+model <- as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
   feelnoneuimmigration + globopportunity + occup_scale +
   male + age + educ + lrs
 
-# betteroutsideeu: 1 st agree, 2 agree, 3 disagree, 4 st disagree
-# finasituation: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
-# jobsituation: 1 very good, 2 rather good, 3 rather bad, 4 very bad, 5 dk
-# feeleuimmigration: 1 very positive, 2 fairly positive, 3 fairly negative, 4 very negative, 5dk
-# feelnoneuimmigration: 1 very positive, 2 fairly positive, 3 fairly negative, 4 very negative, 5dk
-# globopportunity: 1 totally agree, 2 agree, 3 disagree, 4 totally disagree, 5 dk
-# male: 1 male 0 female
-# occup_scale: 1 self employed, 2 managers, 3 other white collars, 4 manual workers,
-# 5 house persons, 6 unemployed, 7 retired, 8 students
-# age
-# educ: age when finished education
-# lrs: left to right scale 1 left 10 right
+# impute NAs 
+m <- 5
+amelia_output <- amelia(UK, m = m,
+                        ords = c("betteroutsideeu", "finasituation","feeleuimmigration",
+                                 "feelnoneuimmigration", "globopportunity",
+                                 "occup_scale", "educ", "lrs", "age"),
+                        noms = c("male"))
 
-#delete missing data
-mdata <- extractdata(model, UK, na.rm=TRUE) 
+miData <- amelia_output$imputations
 
-#check for multicollinearity
+# imputation
 
-cor(mdata, use="complete.obs", method="kendall")
+mi <- vector("list", m)
 
-## Data from 2015
-y <- mdata$betteroutsideeu   #better future outside eu
-
-x <- cbind(mdata$finasituation, mdata$feeleuimmigration, 
-           mdata$feelnoneuimmigration, mdata$globopportunity,
-           mdata$occup_scale,
-           mdata$male,
-           mdata$age, mdata$educ, mdata$lrs)
+for (i in 1:m) {
+  mi[[i]] <- polr(model, data=miData[[i]], method="probit")
+}
 
 
-# Use optim directly to get MLE
-ls.result <- lm(model, data=mdata)   # use ls estimates as starting values
-stval <- c(coef(ls.result),1,2)          # initial guesses
-oprobit <- optim(stval, llk.oprobit4, method="BFGS", x=x, y=y, hessian=TRUE)
-pe <- oprobit$par                # point estimates
-vc <- solve(oprobit$hessian)     # var-cov matrix
-se <- sqrt(diag(vc))                 # standard errors
-ll <- -oprobit$value             # likelihood at maximum
-
-#vif
-
-vif(ls.result)
-
-# Simulate parameters from predictive distributions
 sims <- 10000
-simbetas <- mvrnorm(sims, pe, vc)       # draw parameters, using MASS::mvrnorm
+simbetas <- NULL
+for (i in 1:m) {
+  simbetas <- rbind(simbetas,
+                    mvrnorm(sims/m, c(mi[[i]]$coefficients, mi[[i]]$zeta), vcov(mi[[i]]))
+  )
+}
+
 
 # Create example counterfactuals
-xhyp <- cfMake(model, mdata, nscen=18)
+xhyp <- cfMake(model, miData$imp1, nscen=18)
 
 xhyp <- cfName(xhyp, "Right", scen=1)
 xhyp <- cfChange(xhyp, "lrs",
-                 x=mean(na.omit(mdata$lrs))+sd(na.omit(mdata$lrs)),
-                 xpre=mean(na.omit(mdata$lrs)),
+                 x=mean(na.omit(miData$imp1$lrs))+sd(na.omit(miData$imp1$lrs)),
+                 xpre=mean(na.omit(miData$imp1$lrs)),
                  scen=1)
 
 xhyp <- cfName(xhyp, "Left", scen=2)
 xhyp <- cfChange(xhyp, "lrs",
-                 x=mean(na.omit(mdata$lrs))-sd(na.omit(mdata$lrs)),
-                 xpre=mean(na.omit(mdata$lrs)),
+                 x=mean(na.omit(miData$imp1$lrs))-sd(na.omit(miData$imp1$lrs)),
+                 xpre=mean(na.omit(miData$imp1$lrs)),
                  scen=2)
 
 
@@ -232,25 +191,25 @@ xhyp <- cfChange(xhyp, "male", x=1, xpre=0, scen=11)
 xhyp <- cfName(xhyp, "Female", scen=12)
 xhyp <- cfChange(xhyp, "male", x=0, xpre=1, scen=12)
 
-xhyp <- cfName(xhyp, "Age + 1sd = 69", scen=13)
+xhyp <- cfName(xhyp, "Age + 1sd = 73", scen=13)
 xhyp <- cfChange(xhyp, "age",
-                 x=mean(na.omit(mdata$age))+sd(na.omit(mdata$age)),
-                 xpre=mean(na.omit(mdata$age)),
+                 x=mean(na.omit(miData$imp1$age))+sd(na.omit(miData$imp1$age)),
+                 xpre=mean(na.omit(miData$imp1$age)),
                  scen=13)
 
-xhyp <- cfName(xhyp, "Age - 1sd = 35", scen=14)
+xhyp <- cfName(xhyp, "Age - 1sd = 33", scen=14)
 xhyp <- cfChange(xhyp, "age",
-                 x=mean(na.omit(mdata$age))-sd(na.omit(mdata$age)),
-                 xpre=mean(na.omit(mdata$age)),
+                 x=mean(na.omit(miData$imp1$age))-sd(na.omit(miData$imp1$age)),
+                 xpre=mean(na.omit(miData$imp1$age)),
                  scen=14)
 
-xhyp <- cfName(xhyp, "Mean educ years=19", scen=15)
-xhyp <- cfChange(xhyp, "educ", x=mean(na.omit(mdata$educ)),
-                 xpre=mean(na.omit(mdata$educ))+sd(na.omit(mdata$educ)), scen=15)
+xhyp <- cfName(xhyp, "Mean Educ years=18", scen=15)
+xhyp <- cfChange(xhyp, "educ", x=mean(na.omit(miData$imp1$educ)),
+                 xpre=mean(na.omit(miData$imp1$educ))+sd(na.omit(miData$imp1$educ)), scen=15)
 
-xhyp <- cfName(xhyp,"Educ years+1sd=23", scen=16)
-xhyp <- cfChange(xhyp,"educ", x=mean(na.omit(mdata$educ))+sd(na.omit(mdata$educ)),
-                 xpre=mean(na.omit(mdata$educ)), scen=16)
+xhyp <- cfName(xhyp,"Educ years+1sd=22", scen=16)
+xhyp <- cfChange(xhyp,"educ", x=mean(na.omit(miData$imp1$educ))+sd(na.omit(miData$imp1$educ)),
+                 xpre=mean(na.omit(miData$imp1$educ)), scen=16)
 
 xhyp <- cfName(xhyp,"Blue collar", scen=17)
 xhyp <- cfChange(xhyp, "occup_scale",
@@ -266,71 +225,19 @@ xhyp <- cfChange(xhyp, "occup_scale",
 
 
 # Simulate expected probabilities (all four categories)
-oprobit.ev <- oprobitsimev(xhyp, simbetas, cat=4)
+oprobit.ev <- oprobitsimev(xhyp, simbetas, constant=NA, cat=4)
 
 # Simulate first differences (all four categories)
-oprobit.fd <- oprobitsimfd(xhyp, simbetas, cat=4)
-
-# Plot predicted probabilities for all four categories, sorted by size
-sorted <- order(oprobit.ev$pe[,1])
-scenNames <- row.names(xhyp$x)
-
-trace1 <- ropeladder(x = oprobit.ev$pe[sorted,1],
-                     lower = oprobit.ev$lower[sorted,1],
-                     upper = oprobit.ev$upper[sorted,1],
-                     labels = scenNames[sorted],
-                     size=0.5,
-                     lex=1.5,
-                     lineend="square",
-                     plot=1
-)
-
-trace2 <- ropeladder(x = oprobit.ev$pe[sorted,2],
-                     lower = oprobit.ev$lower[sorted,2],
-                     upper = oprobit.ev$upper[sorted,2],
-                     size=0.5,
-                     lex=1.5,
-                     lineend="square",
-                     plot=2
-)
-
-trace3 <- ropeladder(x = oprobit.ev$pe[sorted,3],
-                     lower = oprobit.ev$lower[sorted,3],
-                     upper = oprobit.ev$upper[sorted,3],
-                     size=0.5,
-                     lex=1.5,
-                     lineend="square",
-                     plot=3
-)
-
-trace4 <- ropeladder(x = oprobit.ev$pe[sorted,4],
-                     lower = oprobit.ev$lower[sorted,4],
-                     upper = oprobit.ev$upper[sorted,4],
-                     size=0.5,
-                     lex=1.5,
-                     lineend="square",
-                     plot=4
-)
-
-tile(trace1, trace2, trace3, trace4,
-     limits = c(0,0.6),
-     gridlines = list(type="xt"),
-     topaxis=list(add=TRUE, at=c(0,0.1,0.2,0.3,0.4,0.5, 0.6)),
-     xaxistitle=list(labels="probability"),
-     topaxistitle=list(labels="probability"),
-     plottitle=list(labels=c("Strongly Agree", "Agree",
-                             "Disagree", "Strongly Disagree")),
-     width=list(spacer=3),
-     height = list(plottitle=3,xaxistitle=3.5,topaxistitle=3.5))
+oprobit.fd <- oprobitsimfd(xhyp, simbetas, constant=NA, cat=4)
 
 ## Re-simulate, now collapsing presentation to two categories ("SD/D" vs "SA/A")
 
 ## Simulate expected probabilities (all four categories)
-oprobit.evc <- oprobitsimev(xhyp, simbetas, cat=4,
+oprobit.evc <- oprobitsimev(xhyp, simbetas, constant=NA, cat=4,
                             recode=list(c(1,2), c(3,4)) )
 
 ## Simulate first differences (all four categories)
-oprobit.fdc <- oprobitsimfd(xhyp, simbetas, cat=4,
+oprobit.fdc <- oprobitsimfd(xhyp, simbetas, cat=4, constant=NA,
                             recode=list(c(1,2), c(3,4)) )
 
 ## Make a new rl plot, EV of Dd vs aA
@@ -371,46 +278,48 @@ tile(trace1b, trace2b,
 )
 
 # Create example counterfactuals -- for diffs
-xhyp <- cfMake(model, mdata, nscen=9)
+xhyp <- cfMake(betteroutsideeu ~ finasituation + feeleuimmigration +
+                 feelnoneuimmigration + globopportunity + occup_scale +
+                 male + age + educ + lrs, miData$imp1, nscen=9)
 
 xhyp <- cfName(xhyp, "Left(Right)", scen=1)
-xhyp <- cfChange(xhyp, "lrs", x=mean(na.omit(mdata$lrs))-sd(na.omit(mdata$lrs)),
-                 xpre=mean(na.omit(mdata$lrs))+sd(na.omit(mdata$lrs)), scen=1)
+xhyp <- cfChange(xhyp, "lrs", x=mean(na.omit(miData$imp1$lrs))-sd(na.omit(miData$imp1$lrs)),
+                 xpre=mean(na.omit(miData$imp1$lrs))+sd(na.omit(miData$imp1$lrs)), scen=1)
 
 xhyp <- cfName(xhyp, "Male (Female)", scen=2)
 xhyp <- cfChange(xhyp, "male", x=1, xpre=0, scen=2)
 
-xhyp <- cfName(xhyp, "35 Year Olds (69)", scen=3)
+xhyp <- cfName(xhyp, "33 Year Olds (73)", scen=3)
 xhyp <- cfChange(xhyp, "age",
-                 x=mean(na.omit(mdata$age))-sd(na.omit(mdata$age)),
-                 xpre=mean(na.omit(mdata$age))+sd(na.omit(mdata$age)),
+                 x=mean(na.omit(miData$imp1$age))-sd(na.omit(miData$imp1$age)),
+                 xpre=mean(na.omit(miData$imp1$age))+sd(na.omit(miData$imp1$age)),
                  scen=3)
 
-xhyp <- cfName(xhyp,"Educ years + 1sd (Mean)", scen=4)
-xhyp <- cfChange(xhyp, "educ", x=mean(na.omit(mdata$educ))+sd(na.omit(mdata$educ)),
-                 xpre=mean(na.omit(mdata$educ)), scen=4)
+xhyp <- cfName(xhyp,"Educ years +1sd (Mean)", scen=4)
+xhyp <- cfChange(xhyp, "educ", x=mean(na.omit(miData$imp1$educ))+sd(na.omit(miData$imp1$educ)),
+                 xpre=mean(na.omit(miData$imp1$educ)), scen=4)
 
-xhyp <- cfName(xhyp, "Fin situation v good(v bad)", scen=5)
+xhyp <- cfName(xhyp, "Fin situation v good(V Negative)", scen=5)
 xhyp <- cfChange(xhyp, "finasituation", x=1, xpre=4, scen=5)
 
-xhyp <- cfName(xhyp, "EU immigration v positive (v negative)", scen=6)
+xhyp <- cfName(xhyp, "EU immigration v positive (Negative)", scen=6)
 xhyp <- cfChange(xhyp, "feeleuimmigration", x=1, xpre=4, scen=6)
 
-xhyp <- cfName(xhyp, "Globalization v positive (v negative)", scen=7)
+xhyp <- cfName(xhyp, "Globalization v positive (Negative)", scen=7)
 xhyp <- cfChange(xhyp, "globopportunity", x=1, xpre=4, scen=7)
 
-xhyp <- cfName(xhyp, "Non-EU immigration v positive (v negative)", scen=8)
+xhyp <- cfName(xhyp, "Non-EU immigration v positive (V Negative)", scen=8)
 xhyp <- cfChange(xhyp, "feelnoneuimmigration", x=1, xpre=4, scen=8)
 
 xhyp <- cfName(xhyp, "Blue collar (White collar)", scen=9)
 xhyp <- cfChange(xhyp, "occup_scale", x=4, xpre=3, scen=9)
 
 # Simulate expected probabilities (all four categories)
-oprobit.evc <- oprobitsimev(xhyp, simbetas, cat=4,
+oprobit.evc <- oprobitsimev(xhyp, simbetas, constant=NA, cat=4,
                             recode=list(c(1,2), c(3,4)) )
 
 # Simulate first differences (all four categories)
-oprobit.fdc <- oprobitsimfd(xhyp, simbetas, cat=4,
+oprobit.fdc <- oprobitsimfd(xhyp, simbetas, constant=NA, cat=4,
                             recode=list(c(1,2), c(3,4)) )
 
 
@@ -458,22 +367,21 @@ tile(trace1c, vertmark, traceSig1,
      height=list(plottitle=3,xaxistitle=3.5,topaxistitle=3.5)
 )
 
+
 # cross-validation
 
 # pcp
 
-x <- cbind(mdata$finasituation, mdata$feeleuimmigration, 
-           mdata$feelnoneuimmigration, mdata$globopportunity,
-           mdata$occup_scale,
-           mdata$male,
-           mdata$age, mdata$educ, mdata$lrs)
-y <- mdata$betteroutsideeu   #better future outside eu
+x <- cbind(miData$imp1$finasituation, miData$imp1$feeleuimmigration, 
+           miData$imp1$feelnoneuimmigration, miData$imp1$globopportunity,
+           miData$imp1$occup_scale,
+           miData$imp1$male,
+           miData$imp1$age, miData$imp1$educ, miData$imp1$lrs)
+y <- miData$imp1$betteroutsideeu   #better future outside eu
 
-oprobit2 <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
-                  feelnoneuimmigration + globopportunity + occup_scale +
-                  male + age + educ + lrs, data=mdata, method="probit")
+oprobitm1 <- polr(model, data=miData$imp1, method="probit")
 
-b <- c(oprobit$coefficients, oprobit$zeta)
+b <- c(oprobitm1$coefficients, oprobitm1$zeta)
 
 pcp.oprobit <- function(x, y, b, constant=NA, ncat=4, type="model") { # other types:  null, improve
   
@@ -510,38 +418,34 @@ pcp.oprobit(x, y, b, constant=NA, ncat=4, type="model")
 pcp.oprobit(x, y, b, constant=NA, ncat=4, type="null")
 pcp.oprobit(x, y, b, constant=NA, ncat=4, type="improve")
 
+# we have to adapt it to the new imputed data
+
 ## A simple leave-one-out cross-validation function for multinom adapted for oprobit
 # returns predicted probs
-
-model <- as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration +
-  feelnoneuimmigration + globopportunity + occup_scale +
-  male + age + educ + lrs
-
-
 loocv <- function (obj, model, data) {
   ncat <- 4
-  m <- nrow(mdata)
+  nrow <- nrow(miData$imp1)
   form <- model
-  loo <- matrix(NA, nrow=m, ncol=ncat)
-  for (i in 1:m) {
-    oprobit <- polr(model, data=mdata[-i,], method="probit")
-    loo[i,] <- predict(oprobit, newdata = mdata[i,], type="probs")
+  loo <- matrix(NA, nrow=nrow, ncol=ncat)
+  oprobit <- polr(model, data=miData$imp1[-i,], method="probit")
+  for (i in 1:nrow) {
+    loo[i,] <- predict(oprobit, newdata = miData$imp1[i,], type="probs")
   }
   loo
 }
 
 #do ordered probit with polr
 
-predIS <- predict(oprobit2, type="probs")
-predCV <- loocv(oprobit2, model, mdata)
+predIS <- predict(oprobitm1, type="probs")
+predCV <- loocv(oprobitm1, model, miData$imp1)
 
 ncat <- 4
 predIScat <- apply(predIS, 1, function(x, ncat) order(x)[ncat], ncat=ncat)
 predCVcat <- apply(predCV, 1, function(x, ncat) order(x)[ncat], ncat=ncat)
 
-pcpIS <- mean(predIScat==mdata$betteroutsideeu)
+pcpIS <- mean(predIScat==miData$imp1$betteroutsideeu)
 pcpIS
-pcpCV <- mean(predCVcat==mdata$betteroutsideeu)
+pcpCV <- mean(predCVcat==miData$imp1$betteroutsideeu)
 pcpCV
 
 
@@ -551,4 +455,5 @@ pcpCV
 # BIC
 # ROC
 # Actual versus predicted plot
+
 
