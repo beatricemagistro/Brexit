@@ -342,8 +342,8 @@ trace1b <- ropeladder(x = oprobit.evc$pe[sorted,1],
                       lower = oprobit.evc$lower[sorted,1],
                       upper = oprobit.evc$upper[sorted,1],
                       labels = scenNames[sorted],
-                      size=0.65,
-                      lex=1.75,
+                      size=0.6,
+                      lex=1.50,
                       lineend="square",
                       plot=1
 )
@@ -351,24 +351,26 @@ trace1b <- ropeladder(x = oprobit.evc$pe[sorted,1],
 trace2b <- ropeladder(x = oprobit.evc$pe[sorted,2],
                       lower = oprobit.evc$lower[sorted,2],
                       upper = oprobit.evc$upper[sorted,2],
-                      size=0.65,
-                      lex=1.75,
+                      size=0.6,
+                      lex=1.50,
                       lineend="square",
                       plot=2
 )
 
-tile(trace1b, trace2b,
+ev <- tile(trace1b, trace2b,
      limits = c(0,1),
      gridlines = list(type="xt"),
-     xaxis=list(at=c(0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8,0.9)),
-     topaxis=list(add=TRUE, at=c(0.1,0.2,0.3,0.4, 0.5, 0.6, 0.7,0.8,0.9)),
+     xaxis=list(at=c(0,0.2,0.4, 0.6,0.8,1)), fontsize=0.5,
+     topaxis=list(add=TRUE, at=c(0,0.2,0.4, 0.6,0.8,1)),
      xaxistitle=list(labels="probability"),
      topaxistitle=list(labels="probability"),
-     plottitle=list(labels=c("Agree or Str Agree",
-                             "Disagree or Str Disagree")),
+     plottitle=list(labels=c("Agree or SA",
+                             "Disagree or SD")),
      width=list(spacer=3),
-     height = list(plottitle=3,xaxistitle=3.5,topaxistitle=3.5)
+     height = list(plottitle=3,xaxistitle=4.5,topaxistitle=4.5)
 )
+
+print(ev)
 
 # Create example counterfactuals -- for diffs
 xhyp <- cfMake(model, mdata, nscen=9)
@@ -473,7 +475,7 @@ oprobit2 <- polr(as.factor(betteroutsideeu) ~ finasituation + feeleuimmigration 
                   feelnoneuimmigration + globopportunity + occup_scale +
                   male + age + educ + lrs, data=mdata, method="probit")
 
-b <- c(oprobit$coefficients, oprobit$zeta)
+b <- c(oprobit2$coefficients, oprobit2$zeta)
 
 pcp.oprobit <- function(x, y, b, constant=NA, ncat=4, type="model") { # other types:  null, improve
   
